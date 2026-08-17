@@ -2407,14 +2407,31 @@ async def main():
     _me = await user_client.get_me()
     print(f"✅ Userbot (Telethon) авторизован через SESSION_STRING как {_me.first_name}")
 
-    async def fetch_last_response(markers: tuple, retries: int = 4, delay: float = 1.5):
-        """Читает последнее сообщение от SPOOKY_BOT, пока в нём не появится нужный маркер."""
+    async def fetch_last_response(markers: tuple, retries: int = 5, delay: float = 2.0, limit: int = 6):
+        """Ищет свежий ответ от SPOOKY_BOT по маркерам.
+
+        Читаем несколько последних сообщений (а не одно), берём самое новое с нужным
+        маркером и склеиваем части одного ответа, если офф-бот сплитнул его на
+        несколько сообщений (соседние id подряд = части одного ответа).
+        Маркеры сравниваются без учёта регистра («до деактивации» пишется с маленькой).
+        """
+        low = tuple(m.lower() for m in markers)
         for _ in range(retries):
-            messages = await user_client.get_messages(SPOOKY_BOT, limit=1)
+            messages = await user_client.get_messages(SPOOKY_BOT, limit=limit)
             if messages:
-                msg = messages[0]
-                if msg.text and any(m in msg.text for m in markers):
-                    return msg.text
+                idx = next((i for i, m in enumerate(messages)
+                            if m.text and any(x in m.text.lower() for x in low)), None)
+                if idx is not None:
+                    parts = [messages[idx].text]
+                    for i in range(idx, len(messages) - 1):
+                        if messages[i].id - messages[i + 1].id != 1:
+                            break
+                        t = messages[i + 1].text
+                        if not (t and any(x in t.lower() for x in low)):
+                            break
+                        parts.append(t)
+                    parts.reverse()
+                    return "\n".join(parts)
             await asyncio.sleep(delay)
         return None
 
@@ -2424,7 +2441,7 @@ async def main():
             try:
                 await user_client.send_message(SPOOKY_BOT, "/events")
                 await asyncio.sleep(REQUEST_DELAY)
-                text = await fetch_last_response(("Уровень лута", "До следующего"))
+                text = await fetch_last_response(("Уровень лута", "До деактивации", "До следующего"))
                 if text:
                     parsed = parse_events(text)
                     events_data[VERSION_4DIGIT].clear()
@@ -2435,6 +2452,10 @@ async def main():
                     events_data[VERSION_4DIGIT].sort(key=lambda x: x["anarchy_num"])
                     events_data[VERSION_3DIGIT].sort(key=lambda x: x["anarchy_num"])
                     LAST_UPDATE["ts"] = time.time()
+                    has4 = bool(re.search(r"Анархия \d{4}:", text))
+                    has3 = bool(re.search(r"Анархия \d{3}:", text))
+                    if not has4 and has3:
+                        print(f"⚠️ В ответе /events нет четырёхзначных анархий! Начало: {text[:300]!r}")
                     print(f"🔄 Ивенты: {VERSION_4DIGIT} — {len(events_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(events_data[VERSION_3DIGIT])}")
 
                 # /mines — держим паузу не меньше ANTISPAM_MIN_INTERVAL с начала цикла,
