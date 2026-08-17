@@ -74,9 +74,14 @@ NO_RARITY_EVENTS = {"Адская резня", "Бикини боттом", "Г�
 RARITIES = ["Легендарный", "Элитный", "Богатый", "Солидный", "Обычный"]
 RARITY_ORDER = {name: i for i, name in enumerate(RARITIES)}
 
+# Редкости авто-шахт (у SpookyTime — в женском роде: «шахта»), от лучшей к худшей
+MINE_RARITIES = ["Мифическая", "Легендарная", "Элитная", "Богатая", "Солидная", "Обычная"]
+MINE_RARITY_ORDER = {name: i for i, name in enumerate(MINE_RARITIES)}
+
 LANGUAGES = ["RU", "EN", "KZ", "UA", "BY"]
 
 events_data = {"1.16.5": [], "1.21": []}
+mines_data = {"1.16.5": [], "1.21": []}
 
 # ==================== ПЕРЕВОДЫ ====================
 
@@ -91,6 +96,9 @@ TR = {
             "*Команды:*\n"
             "• /events1 — все ивенты 1.16.5\n"
             "• /events2 — все ивенты 1.21\n"
+            "• /mines — авто-шахты на всех анархиях\n"
+            "• /mines1 — авто-шахты 1.16.5\n"
+            "• /mines2 — авто-шахты 1.21\n"
             "• /help — справка и поддержка\n"
             "• ➕ Добавить команду — создай быструю кнопку с нужными фильтрами\n"
             "• 🗑 Удалить команду — удали ненужную быструю команду\n"
@@ -131,6 +139,9 @@ TR = {
             "• /start — информация о боте\n"
             "• /events1 — все ивенты 1.16.5\n"
             "• /events2 — все ивенты 1.21\n"
+            "• /mines — авто-шахты на всех анархиях\n"
+            "• /mines1 — авто-шахты 1.16.5\n"
+            "• /mines2 — авто-шахты 1.21\n"
             "• /help — эта справка\n\n"
             "*Быстрые команды:*\n"
             "Создай свою кнопку через «➕ Добавить команду» — выбери версию, типы анархий, ивенты и редкость. Макс. 5 команд.\n\n"
@@ -156,6 +167,9 @@ TR = {
             "*Commands:*\n"
             "• /events1 — all 1.16.5 events\n"
             "• /events2 — all 1.21 events\n"
+            "• /mines — auto-mines on all anarchies\n"
+            "• /mines1 — auto-mines 1.16.5\n"
+            "• /mines2 — auto-mines 1.21\n"
             "• /help — help & support\n"
             "• ➕ Add command — create a quick button with filters\n"
             "• 🗑 Delete command — remove a quick command\n"
@@ -196,6 +210,9 @@ TR = {
             "• /start — bot info\n"
             "• /events1 — all 1.16.5 events\n"
             "• /events2 — all 1.21 events\n"
+            "• /mines — auto-mines on all anarchies\n"
+            "• /mines1 — auto-mines 1.16.5\n"
+            "• /mines2 — auto-mines 1.21\n"
             "• /help — this help\n\n"
             "*Quick commands:*\n"
             "Create your button via «➕ Add command» — choose version, anarchy types, events and rarity. Max 5 commands.\n\n"
@@ -355,7 +372,7 @@ def dump_events_cache():
     """Сохраняет текущие события в общий файл, чтобы Discord-бот читал те же данные."""
     try:
         with open(EVENTS_CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"updated": time.time(), "events": events_data}, f, ensure_ascii=False)
+            json.dump({"updated": time.time(), "events": events_data, "mines": mines_data}, f, ensure_ascii=False)
     except Exception as e:
         print(f"⚠️ dump_events_cache: {e}")
 
@@ -644,7 +661,7 @@ def cmd_label(cmd: dict) -> str:
 
 def default_layout(cmds) -> list:
     """Стандартный порядок ключей кнопок reply-клавиатуры."""
-    keys = ["events1", "events2", "search", "del", "add", "help", "settings", "changelog"]
+    keys = ["events1", "events2", "search", "mines1", "mines2", "mines", "del", "add", "help", "settings", "changelog"]
     keys += [f"fast{i + 1}" for i in range(len(cmds))]
     return keys
 
@@ -655,6 +672,12 @@ def _btn_label(key: str, lang: str, cmds) -> str:
         return "🎯 /events1"
     if key == "events2":
         return "🚀 /events2"
+    if key == "mines1":
+        return "⛏ /mines1"
+    if key == "mines2":
+        return "⛏ /mines2"
+    if key == "mines":
+        return "⛏ /mines"
     if key == "help":
         return "🛡 /help"
     if key == "changelog":
@@ -681,6 +704,7 @@ def default_layout_rows(cmds) -> list:
     """Стандартная раскладка по рядам."""
     rows = [
         ["events1", "events2", "search"],
+        ["mines1", "mines2", "mines"],
         ["del", "add"],
         ["help", "settings", "changelog"],
     ]
@@ -724,6 +748,7 @@ def layout_keys_flat(rows) -> list:
 # Цвета кнопок (Bot API 9.4+): success=зелёный, primary=синий, danger=красный
 BTN_STYLES = {
     "events1": "success", "events2": "success", "search": "success",
+    "mines1": "primary", "mines2": "primary", "mines": "primary",
     "settings": "primary", "help": "primary", "changelog": "primary",
     "add": "danger", "del": "danger",
 }
@@ -902,6 +927,90 @@ def parse_events(text):
             "raw_first_line": first
         })
     return events
+
+
+def _parse_clock(s):
+    """'01:48' / '1:02:03' -> секунды (int), иначе fallback на слова ('1 мин 9 сек')."""
+    if not s:
+        return None
+    s = s.strip()
+    if ":" in s:
+        digits = [p for p in s.split(":") if p.strip().isdigit()]
+        if digits:
+            total = 0
+            for p in digits:
+                total = total * 60 + int(p)
+            return total
+    return _parse_ru_duration(s)
+
+
+def parse_mines(text):
+    """Парсит ответ @SpookyTimeBot на /mines.
+
+    Формат блока:
+    [🩵] Анархия 401:
+    Следующая: Легендарная
+    Обновится через: 01:48
+    """
+    now = time.time()
+    mines = []
+    if not text:
+        return mines
+    blocks = re.findall(
+        r"\[\s*([^\]]+?)\s*\]\s*Анархия\s*(\d+):\s*(.*?)(?=\[\s*[^\]]+?\]\s*Анархия\s*\d+\s*:|$)",
+        text, re.DOTALL)
+    for emoji, num_str, content in blocks:
+        m_next = re.search(r"Следующая:\s*(.+)", content)
+        if not m_next:
+            continue
+        m_refresh = re.search(r"Обновится через:\s*([^\n]+)", content)
+        refresh_str = m_refresh.group(1).strip() if m_refresh else None
+        mines.append({
+            "anarchy_num": int(num_str),
+            "emoji": emoji.strip(),
+            "next_rarity": m_next.group(1).strip(),
+            "refresh_str": refresh_str,
+            "refresh_sec": _parse_clock(refresh_str),
+            "fetched_at": now,
+        })
+    return mines
+
+
+def sort_mines(mines: list, sort_mode: str) -> list:
+    if sort_mode == "rarity":
+        return sorted(mines, key=lambda m: (
+            MINE_RARITY_ORDER.get(m.get("next_rarity"), len(MINE_RARITY_ORDER)),
+            m["anarchy_num"]))
+    return sorted(mines, key=lambda m: m["anarchy_num"])
+
+
+def _format_clock(sec):
+    sec = int(max(0, round(sec)))
+    h, m, s = sec // 3600, (sec % 3600) // 60, sec % 60
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+def format_mines(mines: list, version: str = None) -> str:
+    if not mines:
+        return "📭 Нет данных об авто-шахтах." + (f" ({version})" if version else "")
+    if version:
+        out = f"📅 Список авто-шахт на анархиях {version}:\n\n"
+    else:
+        out = "📅 Список авто-шахт на всех анархиях:\n\n"
+    for m in mines:
+        emoji = m.get("emoji") or "🪙"
+        nxt = html.escape(m.get("next_rarity") or "?")
+        base = m.get("refresh_sec")
+        if base is not None and m.get("fetched_at"):
+            t = html.escape(_format_clock(base - (time.time() - m["fetched_at"])))
+        else:
+            t = html.escape(m.get("refresh_str") or "?")
+        out += f"[{emoji}] Анархия {m['anarchy_num']}:\n"
+        out += f"Следующая: {nxt}\n"
+        out += f"Обновится через: {t}\n\n"
+    return out
 
 
 def apply_status_filter(evs: list, mode: str) -> list:
@@ -1094,6 +1203,9 @@ COMMANDS_HELP = (
     "\n\n*Команды:*\n"
     "• /events1 — ивенты 1.16.5\n"
     "• /events2 — ивенты 1.21\n"
+    "• /mines — авто-шахты на всех анархиях\n"
+    "• /mines1 — авто-шахты 1.16.5\n"
+    "• /mines2 — авто-шахты 1.21\n"
     "• /search <текст> — поиск ивента\n"
     "• /newcommand — создать быструю команду\n"
     "• /delcommand — удалить быструю команду\n"
@@ -1244,6 +1356,12 @@ def render_for_user(user_id, token, last_search=""):
         if not results:
             return t(lang, "search_empty", q=q), lang
         return _format_search(results, q, lang, settings.get("compact", False)), lang
+    if kind == "m":
+        if rest == "all":
+            mines = sort_mines(mines_data[VERSION_4DIGIT] + mines_data[VERSION_3DIGIT], settings["sort"])
+            return format_mines(mines), lang
+        mines = sort_mines(mines_data.get(rest, []), settings["sort"])
+        return format_mines(mines, rest), lang
     return t(lang, "no_events", label=""), lang
 
 
@@ -1395,6 +1513,51 @@ async def events2(update: Update, context: ContextTypes.DEFAULT_TYPE):
     evs = sort_events(evs, settings["sort"])
     evs = apply_status_filter(evs, settings.get("status_filter", "both"))
     await send_events_view(update, evs, VERSION_3DIGIT, settings, None, "v:" + VERSION_3DIGIT, context)
+
+# ==================== АВТО-ШАХТЫ ====================
+
+async def send_mines_view(update, mines, version, settings, context=None):
+    """Отправляет список шахт с кнопкой «Обновить» (и автообновлением, если включено)."""
+    lang = settings["lang"]
+    try:
+        track(update.effective_user.id, "view")
+    except Exception:
+        pass
+    text = format_mines(mines, version)
+    user_id = update.effective_user.id
+    au_on = (settings.get("autoupdate", False) and context is not None
+             and getattr(context, "job_queue", None) is not None)
+    token = "m:all" if not version else "m:" + version
+    kb = results_kb(token, lang, autoupdate=au_on)
+    msg = update.effective_message
+    sent = None
+    if len(text) > 4000:
+        chunks = [text[i:i + 4000] for i in range(0, len(text), 4000)]
+        for c in chunks[:-1]:
+            await msg.reply_text(c, parse_mode="HTML")
+        sent = await msg.reply_text(chunks[-1], reply_markup=kb, parse_mode="HTML")
+    else:
+        sent = await msg.reply_text(text, reply_markup=kb, parse_mode="HTML")
+    if au_on and sent is not None:
+        _start_autoupdate(context, user_id, sent.chat_id, sent.message_id, token, "")
+
+
+async def mines(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    settings = get_user_settings(update.effective_user.id)
+    all_mines = sort_mines(mines_data[VERSION_4DIGIT] + mines_data[VERSION_3DIGIT], settings["sort"])
+    await send_mines_view(update, all_mines, None, settings, context)
+
+
+async def mines1(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    settings = get_user_settings(update.effective_user.id)
+    m = sort_mines(mines_data[VERSION_4DIGIT], settings["sort"])
+    await send_mines_view(update, m, VERSION_4DIGIT, settings, context)
+
+
+async def mines2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    settings = get_user_settings(update.effective_user.id)
+    m = sort_mines(mines_data[VERSION_3DIGIT], settings["sort"])
+    await send_mines_view(update, m, VERSION_3DIGIT, settings, context)
 
 # ==================== ДОБАВЛЕНИЕ БЫСТРОЙ КОМАНДЫ ====================
 
@@ -1958,6 +2121,12 @@ async def handle_custom_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await events1(update, context)
     if text == "🚀 /events2":
         return await events2(update, context)
+    if text == "⛏ /mines1":
+        return await mines1(update, context)
+    if text == "⛏ /mines2":
+        return await mines2(update, context)
+    if text == "⛏ /mines":
+        return await mines(update, context)
     if text == "🛡 /help":
         return await help_cmd(update, context)
     if text == "📋 /changelog":
@@ -2205,27 +2374,55 @@ async def main():
     _me = await user_client.get_me()
     print(f"✅ Userbot (Telethon) авторизован через SESSION_STRING как {_me.first_name}")
 
+    async def fetch_last_response(markers: tuple, retries: int = 4, delay: float = 1.5):
+        """Читает последнее сообщение от SPOOKY_BOT, пока в нём не появится нужный маркер."""
+        for _ in range(retries):
+            messages = await user_client.get_messages(SPOOKY_BOT, limit=1)
+            if messages:
+                msg = messages[0]
+                if msg.text and any(m in msg.text for m in markers):
+                    return msg.text
+            await asyncio.sleep(delay)
+        return None
+
     async def update_loop():
         while True:
             cycle_start = time.time()
             try:
                 await user_client.send_message(SPOOKY_BOT, "/events")
                 await asyncio.sleep(REQUEST_DELAY)
-                messages = await user_client.get_messages(SPOOKY_BOT, limit=1)
-                if messages:
-                    msg = messages[0]
-                    if msg.text and ("Анархия" in msg.text or "До следующего" in msg.text):
-                        parsed = parse_events(msg.text)
-                        events_data[VERSION_4DIGIT].clear()
-                        events_data[VERSION_3DIGIT].clear()
-                        for event in parsed:
-                            v = get_version(event["anarchy_num"])
-                            events_data[v].append(event)
-                        events_data[VERSION_4DIGIT].sort(key=lambda x: x["anarchy_num"])
-                        events_data[VERSION_3DIGIT].sort(key=lambda x: x["anarchy_num"])
-                        LAST_UPDATE["ts"] = time.time()
-                        print(f"🔄 Обновлено: {VERSION_4DIGIT} — {len(events_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(events_data[VERSION_3DIGIT])}")
-                        dump_events_cache()
+                text = await fetch_last_response(("Уровень лута", "До следующего"))
+                if text:
+                    parsed = parse_events(text)
+                    events_data[VERSION_4DIGIT].clear()
+                    events_data[VERSION_3DIGIT].clear()
+                    for event in parsed:
+                        v = get_version(event["anarchy_num"])
+                        events_data[v].append(event)
+                    events_data[VERSION_4DIGIT].sort(key=lambda x: x["anarchy_num"])
+                    events_data[VERSION_3DIGIT].sort(key=lambda x: x["anarchy_num"])
+                    LAST_UPDATE["ts"] = time.time()
+                    print(f"🔄 Ивенты: {VERSION_4DIGIT} — {len(events_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(events_data[VERSION_3DIGIT])}")
+
+                # /mines — держим паузу не меньше ANTISPAM_MIN_INTERVAL с начала цикла,
+                # чтобы не упереться в антиспам офф-бота (команда не чаще раза в 5 сек)
+                gap = ANTISPAM_MIN_INTERVAL - (time.time() - cycle_start)
+                if gap > 0:
+                    await asyncio.sleep(gap)
+                await user_client.send_message(SPOOKY_BOT, "/mines")
+                await asyncio.sleep(REQUEST_DELAY)
+                text = await fetch_last_response(("Обновится через", "авто-шахт"))
+                if text:
+                    parsed = parse_mines(text)
+                    mines_data[VERSION_4DIGIT].clear()
+                    mines_data[VERSION_3DIGIT].clear()
+                    for mine in parsed:
+                        v = get_version(mine["anarchy_num"])
+                        mines_data[v].append(mine)
+                    mines_data[VERSION_4DIGIT].sort(key=lambda x: x["anarchy_num"])
+                    mines_data[VERSION_3DIGIT].sort(key=lambda x: x["anarchy_num"])
+                    print(f"🔄 Шахты: {VERSION_4DIGIT} — {len(mines_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(mines_data[VERSION_3DIGIT])}")
+                dump_events_cache()
             except Exception as e:
                 print(f"❌ Ошибка опроса: {e}")
                 traceback.print_exc()
@@ -2255,6 +2452,9 @@ async def main():
         bot_app.add_handler(CommandHandler(f"fastcommand{_i}", _make_fast_cmd(_i)))
     bot_app.add_handler(CommandHandler("events1", events1))
     bot_app.add_handler(CommandHandler("events2", events2))
+    bot_app.add_handler(CommandHandler("mines", mines))
+    bot_app.add_handler(CommandHandler("mines1", mines1))
+    bot_app.add_handler(CommandHandler("mines2", mines2))
 
     # Все локализованные варианты кнопок "Добавить команду"
     add_btn_pattern = "^(" + "|".join(re.escape(TR[l]["btn_add"]) for l in LANGUAGES) + ")$"
@@ -2295,6 +2495,9 @@ async def main():
         await bot_app.bot.set_my_commands([
             BotCommand("events1", "Ивенты 1.16.5"),
             BotCommand("events2", "Ивенты 1.21"),
+            BotCommand("mines", "Авто-шахты (все анархии)"),
+            BotCommand("mines1", "Авто-шахты 1.16.5"),
+            BotCommand("mines2", "Авто-шахты 1.21"),
             BotCommand("search", "Поиск ивента"),
             BotCommand("newcommand", "Создать быструю команду"),
             BotCommand("delcommand", "Удалить быструю команду"),
