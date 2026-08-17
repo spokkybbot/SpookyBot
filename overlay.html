@@ -6,54 +6,64 @@
 <title>SpookyEvents — LIVE</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:radial-gradient(1200px 800px at 20% -10%, #16233f 0%, #0b0e17 60%);color:#e8ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px 28px 40px}
-header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 4px 16px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:22px}
-.logo{font-size:26px;font-weight:800;letter-spacing:.5px}
-.logo .live{font-size:12px;font-weight:700;color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);padding:3px 10px;border-radius:999px;margin-left:10px;vertical-align:3px;animation:pulse 2s infinite}
+html,body{height:100%}
+body{background:radial-gradient(1200px 800px at 20% -10%, #16233f 0%, #0b0e17 60%);color:#e8ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;padding:12px 18px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo{font-size:18px;font-weight:800;letter-spacing:.4px}
+.logo .live{font-size:10px;font-weight:700;color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:2px;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-.h-right{text-align:right}
-.clock{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:#9db8ff}
-.updated{font-size:12px;color:#7b89a6;margin-top:2px}
-.sec{margin-bottom:26px}
-.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.sec-head h2{font-size:19px;font-weight:700}
-.chip{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);color:#c3cede;background:rgba(255,255,255,.04)}
-.chip.an{background:rgba(255,255,255,.03)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.card{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px;backdrop-filter:blur(6px)}
-.ev.up{opacity:.45}
-.ev-top,.mine-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.ev-emoji{font-size:22px}
-.ev-name{font-size:17px;font-weight:700;margin-bottom:6px}
-.ev-line{font-size:13px;color:#aab6cd;margin-top:4px}
-.rar{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
-.rar.big{font-size:15px;text-transform:none;letter-spacing:0}
-.muted{color:#8190ac;font-size:13px}
-.mine-emoji{font-size:26px}
-.mine-next{margin:6px 0 8px}
-.mine-t{display:flex;align-items:baseline;gap:8px}
-.cd{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#ffd28a}
-.cd.big{font-size:26px;color:#7ee0a3}
+.h-right{display:flex;align-items:center;gap:10px}
+.clock{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;color:#9db8ff}
+.updated{font-size:11px;color:#7b89a6}
+main{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0}
+.sec{display:flex;flex-direction:column;gap:8px;min-height:0}
+.sec-head{display:flex;align-items:center;gap:10px}
+.sec-head h2{font-size:15px;font-weight:700}
+.sec-head .count{font-size:11px;color:#7b89a6;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:8px;overflow:hidden}
+.card{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:8px 10px}
+.ev-top{display:flex;align-items:center;gap:8px;min-width:0}
+.ev-emoji{font-size:15px;flex:none}
+.ev-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.ev-meta{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:11.5px;color:#aab6cd}
+.rar{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;flex:none}
+.muted{color:#8190ac}
+.mine-line{display:flex;align-items:center;gap:8px;min-width:0}
+.mine-line .muted{flex:none}
+.mine-name{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.cd{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums;font-size:14px;font-weight:700;color:#ffd28a;flex:none}
+.cd.big{font-size:15px;color:#7ee0a3}
 .cd.zero{color:#f87171}
-.empty{color:#56627c;font-size:14px;padding:10px 2px}
-footer{text-align:center;color:#56627c;font-size:12px;margin-top:30px}
+.chip{font-size:10px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);color:#c3cede;background:rgba(255,255,255,.04);flex:none}
+.up .ev-top{opacity:.75}
+.empty{color:#56627c;font-size:12.5px;padding:6px 2px}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">👻 SpookyEvents <span class="live">LIVE</span></div>
+  <div class="logo">👻 SpookyEvents 1.16.5 <span class="live">LIVE</span></div>
   <div class="h-right">
     <div class="clock" id="clock">--:--:--</div>
     <div class="updated" id="updated">загрузка...</div>
   </div>
 </header>
-<main id="wrap"></main>
-<footer>Данные обновляются автоматически · источник @SpookyTimeBot</footer>
+<main>
+  <section class="sec">
+    <div class="sec-head"><h2>🎯 Активные ивенты</h2><span class="count" id="cActive"></span></div>
+    <div class="grid" id="gActive"></div>
+  </section>
+  <section class="sec">
+    <div class="sec-head"><h2>👑 Шахты · Легендарная / Мифическая</h2><span class="count" id="cMines"></span></div>
+    <div class="grid" id="gMines"></div>
+  </section>
+  <section class="sec">
+    <div class="sec-head"><h2>⏳ Ближайшие ивенты (5)</h2><span class="count" id="cUp"></span></div>
+    <div class="grid" id="gUp"></div>
+  </section>
+</main>
 <script>
-const V1 = '1.21';
-const V2 = '1.16.5';
+const V = '1.16.5';
 let offset = 0;
-
 const nowS = () => Date.now() / 1000 + offset;
 const p2 = n => String(n).padStart(2, '0');
 
@@ -91,6 +101,11 @@ function el(tag, cls, text) {
   if (text != null) n.textContent = text;
   return n;
 }
+function chip(text, color) {
+  const c = el('span', 'chip', text);
+  if (color) { c.style.borderColor = color; c.style.color = color; }
+  return c;
+}
 function cdNode(until, fallback) {
   const c = el('span', 'cd');
   if (until != null && isFinite(until)) {
@@ -107,90 +122,74 @@ function evEnd(e) {
 }
 function evCard(e) {
   const {emoji, name} = parseFirst(e.raw_first_line);
-  const card = el('div', 'card ev' + (e.upcoming ? ' up' : ''));
+  const card = el('div', 'card' + (e.upcoming ? ' up' : ''));
   const top = el('div', 'ev-top');
-  const chip = el('span', 'chip an', 'Анархия ' + e.anarchy_num);
-  chip.style.borderColor = typeColor(e.anarchy_num);
-  chip.style.color = typeColor(e.anarchy_num);
-  top.appendChild(chip);
   top.appendChild(el('span', 'ev-emoji', emoji));
+  top.appendChild(el('span', 'ev-name', name));
+  top.appendChild(chip(String(e.anarchy_num), typeColor(e.anarchy_num)));
   card.appendChild(top);
-  card.appendChild(el('div', 'ev-name', name));
-  if (e.upcoming) {
-    const l = el('div', 'ev-line');
-    l.appendChild(el('span', '', '⏳ Ивент через '));
-    l.appendChild(cdNode(evEnd(e)));
-    card.appendChild(l);
-  } else {
+  const meta = el('div', 'ev-meta');
+  if (!e.upcoming) {
     if (e.rarity) {
       const b = el('span', 'rar', e.rarity);
       b.style.color = rarityColor(e.rarity);
-      card.appendChild(b);
+      meta.appendChild(b);
     }
-    if (e.loot_level) card.appendChild(el('div', 'ev-line', '💎 Уровень лута: ' + e.loot_level));
-    if (e.status) {
-      const l = el('div', 'ev-line');
-      l.appendChild(el('span', '', '⚡ ' + e.status));
-      const until = evEnd(e);
-      if (until != null) {
-        l.appendChild(el('span', 'muted', ' · '));
-        l.appendChild(cdNode(until));
-      } else if (e.time_str) {
-        l.appendChild(el('span', 'muted', ' · ' + e.time_str));
-      }
-      card.appendChild(l);
-    }
-    if (e.location) card.appendChild(el('div', 'ev-line', '📍 ' + e.location));
+    if (e.loot_level) meta.appendChild(el('span', 'muted', e.loot_level));
+    meta.appendChild(el('span', 'muted', '·'));
+    meta.appendChild(cdNode(evEnd(e), e.time_str));
+  } else {
+    meta.appendChild(el('span', 'muted', 'через'));
+    meta.appendChild(cdNode(evEnd(e), e.next_in));
   }
+  card.appendChild(meta);
   return card;
 }
 function mineCard(m) {
-  const card = el('div', 'card mine');
-  const top = el('div', 'mine-top');
-  top.appendChild(el('span', 'mine-emoji', m.emoji || '🪙'));
-  const chip = el('span', 'chip an', 'Анархия ' + m.anarchy_num);
-  chip.style.borderColor = typeColor(m.anarchy_num);
-  chip.style.color = typeColor(m.anarchy_num);
-  top.appendChild(chip);
+  const card = el('div', 'card');
+  const top = el('div', 'mine-line');
+  top.appendChild(el('span', 'ev-emoji', m.emoji || '🪙'));
+  top.appendChild(el('span', 'mine-name', 'Анархия ' + m.anarchy_num));
+  top.appendChild(chip(String(m.anarchy_num), typeColor(m.anarchy_num)));
   card.appendChild(top);
-  const nxt = el('div', 'mine-next');
-  nxt.appendChild(el('span', 'muted', 'Следующая: '));
-  const b = el('span', 'rar big', m.next_rarity || '?');
+  const meta = el('div', 'ev-meta');
+  meta.appendChild(el('span', 'muted', 'Следующая:'));
+  const b = el('span', 'rar', m.next_rarity || '?');
   b.style.color = rarityColor(m.next_rarity);
-  nxt.appendChild(b);
-  card.appendChild(nxt);
-  const t = el('div', 'mine-t');
-  t.appendChild(el('span', 'muted', 'Обновится через '));
-  const until = m.refresh_sec != null ? m.fetched_at + m.refresh_sec : null;
-  t.appendChild(cdNode(until, m.refresh_str));
-  card.appendChild(t);
+  meta.appendChild(b);
+  meta.appendChild(el('span', 'muted', '·'));
+  meta.appendChild(cdNode(m.refresh_sec != null ? m.fetched_at + m.refresh_sec : null, m.refresh_str));
+  card.appendChild(meta);
   return card;
 }
-function section(title, version, items, cardFn) {
-  const sec = el('section', 'sec');
-  const head = el('div', 'sec-head');
-  head.appendChild(el('h2', '', title));
-  head.appendChild(el('span', 'chip', version));
-  sec.appendChild(head);
-  const grid = el('div', 'grid');
-  if (!items.length) grid.appendChild(el('div', 'empty', 'Нет данных — бот ещё не собрал'));
+function fill(grid, items, cardFn, emptyText) {
+  grid.textContent = '';
+  if (!items.length) grid.appendChild(el('div', 'empty', emptyText));
   items.forEach(i => grid.appendChild(cardFn(i)));
-  sec.appendChild(grid);
-  return sec;
+}
+function minePriority(m) {
+  const n = (m.next_rarity || '').toLowerCase();
+  if (n.includes('легенд')) return 0;
+  if (n.includes('мифи')) return 1;
+  return 2;
 }
 function render(d) {
-  const wrap = document.getElementById('wrap');
-  wrap.textContent = '';
-  const evs = d.events || {};
-  const mns = d.mines || {};
-  for (const v of [V1, V2]) {
-    const list = [...(evs[v] || [])].sort((a, b) => a.anarchy_num - b.anarchy_num);
-    const act = list.filter(e => !e.upcoming);
-    const up = list.filter(e => e.upcoming);
-    wrap.appendChild(section('🎯 Ивенты', v, act.concat(up), evCard));
-    const ml = [...(mns[v] || [])].sort((a, b) => a.anarchy_num - b.anarchy_num);
-    wrap.appendChild(section('⛏ Авто-шахты', v, ml, mineCard));
-  }
+  const evs = (d.events && d.events[V]) || [];
+  const act = evs.filter(e => !e.upcoming).sort((a, b) => a.anarchy_num - b.anarchy_num);
+  const up = evs.filter(e => e.upcoming)
+    .sort((a, b) => (a.next_in_sec != null ? a.next_in_sec : 1e9) - (b.next_in_sec != null ? b.next_in_sec : 1e9))
+    .slice(0, 5);
+  const mines = (d.mines && d.mines[V]) || [];
+  const topMines = mines
+    .filter(m => minePriority(m) < 2)
+    .sort((a, b) => minePriority(a) - minePriority(b) || a.anarchy_num - b.anarchy_num);
+
+  fill(document.getElementById('gActive'), act, evCard, 'Нет активных ивентов');
+  fill(document.getElementById('gMines'), topMines, mineCard, 'Нет легендарных / мифических шахт');
+  fill(document.getElementById('gUp'), up, evCard, 'Нет ближайших ивентов');
+  document.getElementById('cActive').textContent = act.length ? `( ${act.length} )` : '';
+  document.getElementById('cMines').textContent = topMines.length ? `( ${topMines.length} )` : '';
+  document.getElementById('cUp').textContent = up.length ? `( ${up.length} )` : '';
 }
 async function pull() {
   try {
