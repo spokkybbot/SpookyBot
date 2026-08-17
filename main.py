@@ -29,9 +29,8 @@ SPOOKY_BOT = "@SpookyTimeBot"
 REQUEST_DELAY = 3
 UPDATE_INTERVAL = 6
 # Офф-бот SPOOKY_BOT принимает команду не чаще раза в 5 сек (антиспам).
-# Не отправляем /events чаще этого порога, иначе команды игнорируются/мьют.
+# Не отправляем команды чаще этого порога, иначе ответит антиспам-сообщением.
 ANTISPAM_MIN_INTERVAL = 6
-EFFECTIVE_INTERVAL = max(UPDATE_INTERVAL, ANTISPAM_MIN_INTERVAL)
 DATA_DIR = os.environ.get("DATA_DIR", ".")
 os.makedirs(DATA_DIR, exist_ok=True)
 USER_COMMANDS_FILE = os.path.join(DATA_DIR, "user_commands.json")
@@ -2407,41 +2406,36 @@ async def main():
     _me = await user_client.get_me()
     print(f"✅ Userbot (Telethon) авторизован через SESSION_STRING как {_me.first_name}")
 
-    async def fetch_last_response(markers: tuple, retries: int = 5, delay: float = 2.0, limit: int = 6):
-        """Ищет свежий ответ от SPOOKY_BOT по маркерам.
+    async def fetch_reply(min_id: int, markers: tuple, retries: int = 5, delay: float = 2.0):
+        """Собирает ответ офф-бота на нашу команду (по id отправленной команды).
 
-        Читаем несколько последних сообщений (а не одно), берём самое новое с нужным
-        маркером и склеиваем части одного ответа, если офф-бот сплитнул его на
-        несколько сообщений (соседние id подряд = части одного ответа).
-        Маркеры сравниваются без учёта регистра («до деактивации» пишется с маленькой).
+        Офф-бот режет длинные ответы на несколько сообщений, поэтому берём ВСЕ
+        сообщения новее нашей команды (min_id) и склеиваем те, где есть маркер
+        ответа. Антиспам и чужие сообщения маркеров не содержат и отсеиваются.
         """
         low = tuple(m.lower() for m in markers)
         for _ in range(retries):
-            messages = await user_client.get_messages(SPOOKY_BOT, limit=limit)
-            if messages:
-                idx = next((i for i, m in enumerate(messages)
-                            if m.text and any(x in m.text.lower() for x in low)), None)
-                if idx is not None:
-                    parts = [messages[idx].text]
-                    for i in range(idx, len(messages) - 1):
-                        if messages[i].id - messages[i + 1].id != 1:
-                            break
-                        t = messages[i + 1].text
-                        if not (t and any(x in t.lower() for x in low)):
-                            break
-                        parts.append(t)
-                    parts.reverse()
-                    return "\n".join(parts)
+            messages = await user_client.get_messages(SPOOKY_BOT, limit=20, min_id=min_id)
+            parts = [m.text for m in messages if m.text and any(x in m.text.lower() for x in low)]
+            if parts:
+                parts.reverse()  # get_messages отдаёт новые первыми
+                return "\n".join(parts)
             await asyncio.sleep(delay)
         return None
 
     async def update_loop():
+        # Между командами выдерживаем паузу не меньше ANTISPAM_MIN_INTERVAL,
+        # считая от ПОСЛЕДНЕЙ команды (антиспам офф-бота: команда не чаще раза в 5 сек).
+        last_cmd_ts = 0.0
         while True:
-            cycle_start = time.time()
             try:
-                await user_client.send_message(SPOOKY_BOT, "/events")
+                gap = ANTISPAM_MIN_INTERVAL - (time.time() - last_cmd_ts)
+                if gap > 0:
+                    await asyncio.sleep(gap)
+                cmd = await user_client.send_message(SPOOKY_BOT, "/events")
+                last_cmd_ts = time.time()
                 await asyncio.sleep(REQUEST_DELAY)
-                text = await fetch_last_response(("Уровень лута", "До деактивации", "До следующего"))
+                text = await fetch_reply(cmd.id, ("Уровень лута", "До деактивации", "До следующего"))
                 if text:
                     parsed = parse_events(text)
                     events_data[VERSION_4DIGIT].clear()
@@ -2455,17 +2449,18 @@ async def main():
                     has4 = bool(re.search(r"Анархия \d{4}:", text))
                     has3 = bool(re.search(r"Анархия \d{3}:", text))
                     if not has4 and has3:
-                        print(f"⚠️ В ответе /events нет четырёхзначных анархий! Начало: {text[:300]!r}")
+                        print(f"⚠️ В ответе /events нет четырёхзначных анархий! Первая часть: {text[:300]!r}")
                     print(f"🔄 Ивенты: {VERSION_4DIGIT} — {len(events_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(events_data[VERSION_3DIGIT])}")
+                else:
+                    print("⚠️ Не получен ответ на /events (антиспам офф-бота)")
 
-                # /mines — держим паузу не меньше ANTISPAM_MIN_INTERVAL с начала цикла,
-                # чтобы не упереться в антиспам офф-бота (команда не чаще раза в 5 сек)
-                gap = ANTISPAM_MIN_INTERVAL - (time.time() - cycle_start)
+                gap = ANTISPAM_MIN_INTERVAL - (time.time() - last_cmd_ts)
                 if gap > 0:
                     await asyncio.sleep(gap)
-                await user_client.send_message(SPOOKY_BOT, "/mines")
+                cmd = await user_client.send_message(SPOOKY_BOT, "/mines")
+                last_cmd_ts = time.time()
                 await asyncio.sleep(REQUEST_DELAY)
-                text = await fetch_last_response(("Обновится через", "авто-шахт"))
+                text = await fetch_reply(cmd.id, ("Обновится через", "авто-шахт"))
                 if text:
                     parsed = parse_mines(text)
                     mines_data[VERSION_4DIGIT].clear()
@@ -2476,12 +2471,13 @@ async def main():
                     mines_data[VERSION_4DIGIT].sort(key=lambda x: x["anarchy_num"])
                     mines_data[VERSION_3DIGIT].sort(key=lambda x: x["anarchy_num"])
                     print(f"🔄 Шахты: {VERSION_4DIGIT} — {len(mines_data[VERSION_4DIGIT])}, {VERSION_3DIGIT} — {len(mines_data[VERSION_3DIGIT])}")
+                else:
+                    print("⚠️ Не получен ответ на /mines (антиспам офф-бота)")
                 dump_events_cache()
             except Exception as e:
                 print(f"❌ Ошибка опроса: {e}")
                 traceback.print_exc()
-            elapsed = time.time() - cycle_start
-            await asyncio.sleep(max(0.5, EFFECTIVE_INTERVAL - elapsed))
+            await asyncio.sleep(1.0)
 
     asyncio.create_task(update_loop())
 
