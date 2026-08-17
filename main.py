@@ -74,8 +74,8 @@ NO_RARITY_EVENTS = {"Адская резня", "Бикини боттом", "Г�
 RARITIES = ["Легендарный", "Элитный", "Богатый", "Солидный", "Обычный"]
 RARITY_ORDER = {name: i for i, name in enumerate(RARITIES)}
 
-# Редкости авто-шахт (у SpookyTime — в женском роде: «шахта»), от лучшей к худшей
-MINE_RARITIES = ["Мифическая", "Легендарная", "Элитная", "Богатая", "Солидная", "Обычная"]
+# Редкости авто-шахт (у SpookyTime — в женском роде: «шахта»), леги выше мификов
+MINE_RARITIES = ["Легендарная", "Мифическая", "Элитная", "Богатая", "Солидная", "Обычная"]
 MINE_RARITY_ORDER = {name: i for i, name in enumerate(MINE_RARITIES)}
 
 LANGUAGES = ["RU", "EN", "KZ", "UA", "BY"]
@@ -2303,11 +2303,42 @@ def _make_fast_cmd(n):
 
 # ==================== ВЕБ-АВТОРИЗАЦИЯ ====================
 
+# ==================== ВЕБ-ОВЕРЛЕЙ ====================
+
+OVERLAY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overlay.html")
+
+
+def load_overlay_html() -> str:
+    try:
+        with open(OVERLAY_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"⚠️ overlay.html не загрузился: {e}")
+        return "<html><body style='background:#0b0e17;color:#e8ecf5;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'>overlay.html не найден</body></html>"
+
+
+OVERLAY_HTML = load_overlay_html()
+
 code_future = None
 phone_code_hash = None
 
 
 async def web_index(request):
+    """Живой оверлей: ивенты и авто-шахты, обновляется сам раз в ~5 сек."""
+    return web.Response(content_type="text/html", text=OVERLAY_HTML)
+
+
+async def web_overlay_json(request):
+    """Данные для оверлея: события, шахты и серверное время (для живых таймеров)."""
+    return web.json_response({
+        "now": time.time(),
+        "updated": LAST_UPDATE.get("ts") or 0,
+        "events": events_data,
+        "mines": mines_data,
+    })
+
+
+async def web_login_page(request):
     return web.Response(content_type="text/html", text="""
 <html><head><meta charset="utf-8">
 <style>body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#1a1a2e}
@@ -2342,12 +2373,14 @@ h2{color:#43b581}</style></head><body>
 async def run_web_server():
     app = web.Application()
     app.router.add_get("/", web_index)
+    app.router.add_get("/overlay.json", web_overlay_json)
+    app.router.add_get("/login", web_login_page)
     app.router.add_post("/code", web_submit_code)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
-    print(f"🌐 Веб-сервер запущен на порту {PORT} — открой домен Railway и введи код")
+    print(f"🌐 Веб-оверлей запущен на порту {PORT} — открой домен Railway и дай демку на вкладку")
 
 # ==================== ГЛАВНАЯ ФУНКЦИЯ ====================
 

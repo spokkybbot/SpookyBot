@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpookyEvents — LIVE</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(1200px 800px at 20% -10%, #16233f 0%, #0b0e17 60%);color:#e8ecf5;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;min-height:100vh;padding:20px 28px 40px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 4px 16px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:22px}
+.logo{font-size:26px;font-weight:800;letter-spacing:.5px}
+.logo .live{font-size:12px;font-weight:700;color:#34d399;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);padding:3px 10px;border-radius:999px;margin-left:10px;vertical-align:3px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.h-right{text-align:right}
+.clock{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:#9db8ff}
+.updated{font-size:12px;color:#7b89a6;margin-top:2px}
+.sec{margin-bottom:26px}
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sec-head h2{font-size:19px;font-weight:700}
+.chip{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);color:#c3cede;background:rgba(255,255,255,.04)}
+.chip.an{background:rgba(255,255,255,.03)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px;backdrop-filter:blur(6px)}
+.ev.up{opacity:.45}
+.ev-top,.mine-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ev-emoji{font-size:22px}
+.ev-name{font-size:17px;font-weight:700;margin-bottom:6px}
+.ev-line{font-size:13px;color:#aab6cd;margin-top:4px}
+.rar{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+.rar.big{font-size:15px;text-transform:none;letter-spacing:0}
+.muted{color:#8190ac;font-size:13px}
+.mine-emoji{font-size:26px}
+.mine-next{margin:6px 0 8px}
+.mine-t{display:flex;align-items:baseline;gap:8px}
+.cd{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-variant-numeric:tabular-nums;font-size:15px;font-weight:700;color:#ffd28a}
+.cd.big{font-size:26px;color:#7ee0a3}
+.cd.zero{color:#f87171}
+.empty{color:#56627c;font-size:14px;padding:10px 2px}
+footer{text-align:center;color:#56627c;font-size:12px;margin-top:30px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">👻 SpookyEvents <span class="live">LIVE</span></div>
+  <div class="h-right">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="updated" id="updated">загрузка...</div>
+  </div>
+</header>
+<main id="wrap"></main>
+<footer>Данные обновляются автоматически · источник @SpookyTimeBot</footer>
+<script>
+const V1 = '1.21';
+const V2 = '1.16.5';
+let offset = 0;
+
+const nowS = () => Date.now() / 1000 + offset;
+const p2 = n => String(n).padStart(2, '0');
+
+function fmtClock(x) {
+  x = Math.max(0, Math.round(x));
+  const h = Math.floor(x / 3600), m = Math.floor((x % 3600) / 60), s = x % 60;
+  return h > 0 ? `${h}:${p2(m)}:${p2(s)}` : `${p2(m)}:${p2(s)}`;
+}
+function timeStr() {
+  const d = new Date(Date.now() + offset * 1000);
+  return `${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+}
+function typeColor(num) {
+  const pre = num >= 1000 ? Math.floor(num / 1000) : Math.floor(num / 100);
+  const colors = {1:'#38bdf8',2:'#f472b6',3:'#a78bfa',4:'#fbbf24',5:'#34d399',6:'#f87171'};
+  return colors[pre] || '#64748b';
+}
+function rarityColor(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('мифи')) return '#f472b6';
+  if (n.includes('легенд')) return '#ffb84d';
+  if (n.includes('элит')) return '#c084fc';
+  if (n.includes('богат')) return '#4ade80';
+  if (n.includes('солид')) return '#60a5fa';
+  if (n.includes('обычн')) return '#94a3b8';
+  return '#e5e7eb';
+}
+function parseFirst(line) {
+  const m = /^\[([^\]]+)\]\s*(.+)$/.exec(line || '');
+  return m ? {emoji: m[1].trim(), name: m[2].trim()} : {emoji: '🎯', name: (line || '?').trim()};
+}
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function cdNode(until, fallback) {
+  const c = el('span', 'cd');
+  if (until != null && isFinite(until)) {
+    c.setAttribute('data-until', until.toFixed(3));
+    c.textContent = fmtClock(until - nowS());
+  } else {
+    c.textContent = fallback || '—';
+  }
+  return c;
+}
+function evEnd(e) {
+  if (e.upcoming) return e.next_in_sec != null ? e.fetched_at + e.next_in_sec : null;
+  return e.timer_sec != null ? e.fetched_at + e.timer_sec : null;
+}
+function evCard(e) {
+  const {emoji, name} = parseFirst(e.raw_first_line);
+  const card = el('div', 'card ev' + (e.upcoming ? ' up' : ''));
+  const top = el('div', 'ev-top');
+  const chip = el('span', 'chip an', 'Анархия ' + e.anarchy_num);
+  chip.style.borderColor = typeColor(e.anarchy_num);
+  chip.style.color = typeColor(e.anarchy_num);
+  top.appendChild(chip);
+  top.appendChild(el('span', 'ev-emoji', emoji));
+  card.appendChild(top);
+  card.appendChild(el('div', 'ev-name', name));
+  if (e.upcoming) {
+    const l = el('div', 'ev-line');
+    l.appendChild(el('span', '', '⏳ Ивент через '));
+    l.appendChild(cdNode(evEnd(e)));
+    card.appendChild(l);
+  } else {
+    if (e.rarity) {
+      const b = el('span', 'rar', e.rarity);
+      b.style.color = rarityColor(e.rarity);
+      card.appendChild(b);
+    }
+    if (e.loot_level) card.appendChild(el('div', 'ev-line', '💎 Уровень лута: ' + e.loot_level));
+    if (e.status) {
+      const l = el('div', 'ev-line');
+      l.appendChild(el('span', '', '⚡ ' + e.status));
+      const until = evEnd(e);
+      if (until != null) {
+        l.appendChild(el('span', 'muted', ' · '));
+        l.appendChild(cdNode(until));
+      } else if (e.time_str) {
+        l.appendChild(el('span', 'muted', ' · ' + e.time_str));
+      }
+      card.appendChild(l);
+    }
+    if (e.location) card.appendChild(el('div', 'ev-line', '📍 ' + e.location));
+  }
+  return card;
+}
+function mineCard(m) {
+  const card = el('div', 'card mine');
+  const top = el('div', 'mine-top');
+  top.appendChild(el('span', 'mine-emoji', m.emoji || '🪙'));
+  const chip = el('span', 'chip an', 'Анархия ' + m.anarchy_num);
+  chip.style.borderColor = typeColor(m.anarchy_num);
+  chip.style.color = typeColor(m.anarchy_num);
+  top.appendChild(chip);
+  card.appendChild(top);
+  const nxt = el('div', 'mine-next');
+  nxt.appendChild(el('span', 'muted', 'Следующая: '));
+  const b = el('span', 'rar big', m.next_rarity || '?');
+  b.style.color = rarityColor(m.next_rarity);
+  nxt.appendChild(b);
+  card.appendChild(nxt);
+  const t = el('div', 'mine-t');
+  t.appendChild(el('span', 'muted', 'Обновится через '));
+  const until = m.refresh_sec != null ? m.fetched_at + m.refresh_sec : null;
+  t.appendChild(cdNode(until, m.refresh_str));
+  card.appendChild(t);
+  return card;
+}
+function section(title, version, items, cardFn) {
+  const sec = el('section', 'sec');
+  const head = el('div', 'sec-head');
+  head.appendChild(el('h2', '', title));
+  head.appendChild(el('span', 'chip', version));
+  sec.appendChild(head);
+  const grid = el('div', 'grid');
+  if (!items.length) grid.appendChild(el('div', 'empty', 'Нет данных — бот ещё не собрал'));
+  items.forEach(i => grid.appendChild(cardFn(i)));
+  sec.appendChild(grid);
+  return sec;
+}
+function render(d) {
+  const wrap = document.getElementById('wrap');
+  wrap.textContent = '';
+  const evs = d.events || {};
+  const mns = d.mines || {};
+  for (const v of [V1, V2]) {
+    const list = [...(evs[v] || [])].sort((a, b) => a.anarchy_num - b.anarchy_num);
+    const act = list.filter(e => !e.upcoming);
+    const up = list.filter(e => e.upcoming);
+    wrap.appendChild(section('🎯 Ивенты', v, act.concat(up), evCard));
+    const ml = [...(mns[v] || [])].sort((a, b) => a.anarchy_num - b.anarchy_num);
+    wrap.appendChild(section('⛏ Авто-шахты', v, ml, mineCard));
+  }
+}
+async function pull() {
+  try {
+    const r = await fetch('/overlay.json', {cache: 'no-store'});
+    const d = await r.json();
+    offset = d.now - Date.now() / 1000;
+    render(d);
+    const up = d.updated ? new Date(d.updated * 1000) : new Date();
+    document.getElementById('updated').textContent = 'данные: ' + p2(up.getHours()) + ':' + p2(up.getMinutes()) + ':' + p2(up.getSeconds());
+  } catch (e) {
+    document.getElementById('updated').textContent = 'сеть недоступна — повтор...';
+  }
+}
+setInterval(() => {
+  document.getElementById('clock').textContent = timeStr();
+  document.querySelectorAll('.cd').forEach(c => {
+    const until = parseFloat(c.getAttribute('data-until'));
+    if (!isFinite(until)) return;
+    const rem = until - nowS();
+    c.textContent = fmtClock(rem);
+    if (rem <= 0) c.classList.add('zero');
+  });
+}, 1000);
+pull();
+setInterval(pull, 5000);
+</script>
+</body>
+</html>
