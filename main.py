@@ -2464,6 +2464,13 @@ async def main():
 
     asyncio.create_task(update_loop())
 
+    # Веб-оверлей: без него Railway не ответит по домену.
+    # Если порт занят (например, поднялся второй инстанс) — не роняем бота.
+    try:
+        await run_web_server()
+    except Exception as e:
+        print(f"⚠️ Веб-сервер не запустился: {e}")
+
     bot_app = Application.builder().token(BOT_TOKEN).build()
 
     # group=-1 — выполняется раньше всех остальных хендлеров (они в group=0).
